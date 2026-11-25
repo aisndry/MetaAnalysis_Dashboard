@@ -26,15 +26,20 @@ STATES = {  # name: (lat, lon, weight)  -> Indonesian provinces
     "Sumatera Utara": (2.10, 99.00, 0.42),
     "Bali": (-8.34, 115.09, 0.36),
     "Sulawesi Selatan": (-3.67, 119.97, 0.28),
+    "Kepulauan Riau": (1.05, 104.03, 0.30),        # Batam
+    "Kalimantan Timur": (0.54, 116.42, 0.34),
+    "Nusa Tenggara Timur": (-10.18, 123.58, 0.18),
+    "Maluku": (-3.70, 128.18, 0.12),
+    "Papua": (-4.00, 138.00, 0.14),
 }
 # Fictional brands (safe for a public portfolio) + a "launch day" and a "boost" per campaign
 CAMPAIGNS = {  # name: (size weight, launch offset in days, ctr multiplier)
-    "nusa_coffee_reach_tofu_v2": (1.00, 0, 1.00),
-    "kopikita_localawareness_mofu_v1": (0.80, 10, 1.15),
-    "mobilgo_brandawareness_bofu_v3": (0.55, 25, 0.90),
-    "tokoku_promo_conversion_bofu_v1": (0.35, 40, 1.35),
+    "Nusa Coffee Reach TOFU": (1.00, 0, 1.00),
+    "Kopikita Local Awareness MOFU": (0.80, 10, 1.15),
+    "Mobilgo Brand Awareness BOFU": (0.55, 25, 0.90),
+    "Tokoku Promo Conversion BOFU": (0.35, 40, 1.35),
 }
-PLATFORMS = {"mobile_app": 0.90, "mobile_web": 0.06, "desktop": 0.035, "unknown": 0.005}
+PLATFORMS = {"Mobile App": 0.90, "Mobile Web": 0.06, "Desktop": 0.035, "Unknown": 0.005}
 
 
 @st.cache_data
@@ -191,7 +196,7 @@ fig.add_scatter(x=daily["date"], y=daily["spend"], name="Amount Spent",
                 mode="lines+markers", line=dict(color="#2cc84d"), secondary_y=True)
 fig.update_layout(height=360, margin=dict(l=10, r=10, t=10, b=10),
                   legend=dict(orientation="h", y=1.12), hovermode="x unified")
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ----------------------------------------------------------------------------
 # 5. CAMPAIGN TABLE (in-cell data bars + % change)
@@ -206,7 +211,7 @@ tbl = tbl[["campaign", "impressions", "impressions_chg", "reach", "clicks", "cli
 st.dataframe(
     tbl,
     hide_index=True,
-    use_container_width=True,
+    width="stretch",
     column_config={
         "campaign": "Campaign Name",
         "impressions": st.column_config.ProgressColumn("Impressions", format="%d", min_value=0, max_value=float(tbl["impressions"].max() or 1)),
@@ -228,12 +233,12 @@ with col_dev:
     st.subheader("Device performance | Impressions & Clicks")
     by_dev = cur.groupby("platform")["impressions"].sum().reset_index()
     donut = px.pie(by_dev, names="platform", values="impressions", hole=0.6,
-                   color_discrete_sequence=["#5b5ff7", "#ff7043", "#b9bcf5", "#e8e0d8"])
+                   color_discrete_map={"Mobile App": "#5b5ff7", "Desktop": "#ff7043", "Mobile Web": "#b9bcf5", "Unknown": "#e8e0d8"})
     donut.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
-    st.plotly_chart(donut, use_container_width=True)
+    st.plotly_chart(donut, width="stretch")
 
-    mob = cur[cur["platform"].isin(["mobile_app", "mobile_web"])]
-    comp = cur[cur["platform"] == "desktop"]
+    mob = cur[cur["platform"].isin(["Mobile App", "Mobile Web"])]
+    comp = cur[cur["platform"] == "Desktop"]
     m_col, c_col = st.columns(2)
     for col, name, d, color in ((m_col, "Mobile", mob, "#5b5ff7"), (c_col, "Computer", comp, "#ff7043")):
         col.markdown(
@@ -253,9 +258,9 @@ with col_state:
                          hover_name="state", color_continuous_scale="YlOrRd", size_max=40)
     geo.update_geos(scope="asia", fitbounds="locations", showcountries=True)
     geo.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0))
-    st.plotly_chart(geo, use_container_width=True)
+    st.plotly_chart(geo, width="stretch")
     st.dataframe(by_state.sort_values("impressions", ascending=False)[["state", "impressions", "clicks"]],
-                 hide_index=True, use_container_width=True, height=180)
+                 hide_index=True, width="stretch", height=180)
 
     if not by_state.empty:
         top = by_state.sort_values("impressions", ascending=False).iloc[0]
