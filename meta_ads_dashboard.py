@@ -167,6 +167,19 @@ def human(n: float) -> str:
 
 st.title("Meta Ads · Overview")
 st.caption("⚠️ Demo dashboard — all data is randomly generated sample data (fictional brands). Currency: Rupiah.")
+st.markdown(
+    "**Purpose:** help a marketing team see which Meta Ads campaigns deliver the most reach and link clicks "
+    "per rupiah spent, and which provinces and devices deserve more budget."
+)
+with st.expander("Questions this dashboard answers"):
+    st.markdown(
+        """
+- Which campaign has the highest CTR, and which is cheapest per link click?
+- Is spend growing faster than link clicks compared with the previous period?
+- Which provinces generate the most link clicks?
+- How much of the traffic comes from mobile versus desktop?
+"""
+    )
 left, right = st.columns(2)
 with left:
     st.subheader("Progress Over Time")
@@ -182,6 +195,52 @@ with right:
     kpi(c2, "CTR (Link Clicks)", f'{T_cur["CTR"]:.2f}%', pct("CTR"), "#a54bd8")
     kpi(c1, "Cost / Link Click", f'{T_cur["Cost/Link Click"]:.2f}', pct("Cost/Link Click"), "#ff9500")
     kpi(c2, "Amount Spent", human(T_cur["Amount Spent"]), pct("Amount Spent"), "#2cc84d")
+
+# ----------------------------------------------------------------------------
+# 3b. KEY INSIGHTS (generated from the current filters)
+# ----------------------------------------------------------------------------
+st.subheader("Key insights")
+if cur.empty or cur["impressions"].sum() == 0:
+    st.warning("No data for the selected filters.")
+    st.stop()
+
+by_c = cur.groupby("campaign")[["impressions", "clicks", "spend"]].sum()
+by_c["ctr"] = by_c["clicks"] / by_c["impressions"] * 100
+by_c["cpc"] = by_c["spend"] / by_c["clicks"].replace(0, np.nan)
+by_s = cur.groupby("state")["clicks"].sum().sort_values(ascending=False)
+mobile_share = cur[cur["platform"].isin(["Mobile App", "Mobile Web"])]["impressions"].sum() / cur["impressions"].sum() * 100
+
+lines = []
+best_ctr = by_c["ctr"].idxmax()
+lines.append(f"**{best_ctr}** has the highest CTR ({by_c.loc[best_ctr, 'ctr']:.2f}%).")
+if by_c["cpc"].notna().any():
+    best_cpc, worst_cpc = by_c["cpc"].idxmin(), by_c["cpc"].idxmax()
+    if best_cpc == best_ctr:
+        lines[0] = (
+            f"**{best_ctr}** has the highest CTR ({by_c.loc[best_ctr, 'ctr']:.2f}%) and is also the "
+            f"cheapest per link click (Rp {by_c.loc[best_cpc, 'cpc']:,.0f})."
+        )
+    else:
+        lines[0] += f" **{best_cpc}** is the cheapest per link click (Rp {by_c.loc[best_cpc, 'cpc']:,.0f})."
+if by_s.sum() > 0:
+    lines.append(
+        f"**{by_s.index[0]}** leads in link clicks ({by_s.iloc[0] / by_s.sum() * 100:.0f}% of the total), "
+        f"and {mobile_share:.0f}% of impressions come from mobile."
+    )
+if T_prev["Amount Spent"] > 0 and T_prev["Link Clicks"] > 0:
+    verdict = "efficiency improved" if pct("Link Clicks") >= pct("Amount Spent") else "efficiency declined"
+    lines.append(
+        f"Versus the previous period, spend changed {pct('Amount Spent'):+.1f}% and link clicks {pct('Link Clicks'):+.1f}% "
+        f"({verdict})."
+    )
+if by_c["cpc"].notna().sum() > 1 and best_cpc != worst_cpc:
+    lines.append(
+        f"**Recommendation:** if link clicks are the goal, review the budget of **{worst_cpc}** "
+        f"(Rp {by_c.loc[worst_cpc, 'cpc']:,.0f} per click) and consider shifting part of it to **{best_cpc}**. "
+        "Check each campaign's objective first: awareness campaigns are not optimised for clicks."
+    )
+with st.container(border=True):
+    st.markdown("\n\n".join(f"- {t}" for t in lines))
 
 # ----------------------------------------------------------------------------
 # 4. TIMELINE (bars + two lines, dual axis)
@@ -272,3 +331,24 @@ with col_state:
             &nbsp;|&nbsp; Spent {top['spend']:,.2f} &nbsp;|&nbsp; CTR {ctr:.2f}% &nbsp;|&nbsp; CPC {cpc:.2f}</div>""",
             unsafe_allow_html=True,
         )
+
+# ----------------------------------------------------------------------------
+# 7. ABOUT
+# ----------------------------------------------------------------------------
+with st.expander("About this dashboard"):
+    st.markdown(
+        f"""
+**Data:** randomly generated sample data for four fictional brands across {len(STATES)} provinces,
+covering {d_min:%d %b %Y} to {d_max:%d %b %Y}. It is not real campaign data.
+
+**Metrics**
+- **CTR:** link clicks ÷ impressions
+- **CPM:** amount spent ÷ impressions × 1,000
+- **Cost / link click:** amount spent ÷ link clicks
+- **Frequency:** impressions ÷ reach
+- **% change:** current period versus the previous period of the same length
+
+**Limitations:** reach is summed from daily values, so it overstates unique people reached;
+the timeline uses two y-axes for readability, so compare its trends rather than its absolute levels.
+"""
+    )
